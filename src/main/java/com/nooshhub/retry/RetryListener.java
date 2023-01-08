@@ -1,4 +1,4 @@
-package com.nooshhub;
+package com.nooshhub.retry;
 
 public interface RetryListener {
     void onOpen(RetryContext retryContext);
