@@ -3,10 +3,12 @@ package com.nooshhub.sample;
 import com.nooshhub.retry.RetryListener;
 import com.nooshhub.retry.RetryTemplate;
 
+import static com.nooshhub.sample.GoldRepository.*;
+
 public class GoldService {
 
     private final GoldRepository goldRepository = new GoldRepository();
-    private final RetryTemplate<Integer> retryTemplate = new RetryTemplate<>();
+    private final RetryTemplate retryTemplate = new RetryTemplate();
 
     public GoldService() {
         retryTemplate.setRetryOnException(ConnectionException.class);
@@ -14,12 +16,13 @@ public class GoldService {
     }
 
     // 循环
-    public void saveGold(Integer amount) {
+    public void saveGold(Integer amount) throws Throwable {
         System.out.println("Run once!");
 
         // retry
 //        retryTemplate.execute(ctx -> {
-//            return goldRepository.save(amount);
+////            throw new Throwable();
+//            throw new TestThrowable();
 //        });
 
         // retry + recover
@@ -32,14 +35,21 @@ public class GoldService {
 
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Throwable {
         GoldService goldService = new GoldService();
 
+        // test error
+//        goldService.saveGold(THROW_ERROR);
+
+        // test not retry on exception
+//        goldService.saveGold(THROW_EXCEPTION);
+
         // success
-        goldService.saveGold(1);
+//        goldService.saveGold(SUCCESS);
 
         // retry with exception
         goldService.saveGold(null);
+
     }
 }
 

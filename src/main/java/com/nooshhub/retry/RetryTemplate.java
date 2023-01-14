@@ -4,10 +4,10 @@ package com.nooshhub.retry;
  * @author Neal Shan
  * @since 2023/1/8
  */
-public class RetryTemplate<T> {
+public class RetryTemplate {
 
     private int maxRetries = 3;
-    private Class retryOnException;
+    private Class<? extends Throwable> retryOnException;
     private RetryListener retryListener;
     private long fixedDelay = 1000L;
 
@@ -19,11 +19,11 @@ public class RetryTemplate<T> {
         this.maxRetries = maxRetries;
     }
 
-    public Class getRetryOnException() {
+    public Class<? extends Throwable> getRetryOnException() {
         return this.retryOnException;
     }
 
-    public void setRetryOnException(Class retryOnException) {
+    public void setRetryOnException(Class<? extends Throwable> retryOnException) {
         this.retryOnException = retryOnException;
     }
 
@@ -43,77 +43,104 @@ public class RetryTemplate<T> {
         this.fixedDelay = fixedDelay;
     }
 
-    public T execute(RetryCallback<T> retryCallback) {
+    public <T, E extends Throwable> T execute(RetryCallback<T, E> retryCallback) throws E {
         return doExecute(retryCallback, null);
     }
 
-    public T execute(RetryCallback<T> retryCallback, RecoverCallback<T> recoverCallback) {
+    public <T, E extends Throwable> T execute(RetryCallback<T, E> retryCallback,
+                                              RecoverCallback<T> recoverCallback) throws E {
         return doExecute(retryCallback, recoverCallback);
     }
 
-    private T doExecute(RetryCallback<T> retryCallback, RecoverCallback<T> recoverCallback) {
+    private <T, E extends Throwable> T doExecute(RetryCallback<T, E> retryCallback,
+                                                 RecoverCallback<T> recoverCallback) throws E {
 
         // 重试上下文准备
         RetryContext retryContext = new RetryContext();
 
-        // 重试开始
-        onOpen(retryContext, retryListener);
-
         Throwable lastException = null;
-        int retriedCount = 0;
+        try {
+            // 重试开始
+            onOpen(retryContext, retryListener);
 
-        for (int i = 0; i < maxRetries; i++) {
-            try {
+            int retriedCount = 0;
 
-                T result = retryCallback.doExecute(retryContext);
+            for (int i = 0; i < maxRetries; i++) {
+                try {
 
-                // 重试成功
-                onSuccess(retryContext, retryListener);
+                    T result = retryCallback.doExecute(retryContext);
 
-                return result;
-            } catch (Throwable ex) {
+                    // 重试成功
+                    onSuccess(retryContext, retryListener);
 
-                lastException = ex;
+                    return result;
+                } catch (Throwable ex) {
 
-                // 重试异常类型检查
-                if (ex.getClass().isAssignableFrom(retryOnException)) {
+                    lastException = ex;
 
-                    // 记录重试次数
-                    ++retriedCount;
-                    System.out.println("Retry" + retriedCount);
+                    // 重试异常类型检查
+                    if (retryOnException.isAssignableFrom(ex.getClass())) {
 
-                    // 延时
-                    try {
-                        Thread.sleep(fixedDelay);
-                        System.out.println("- Sleep 1s");
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        // 记录重试次数
+                        ++retriedCount;
+                        System.out.println("Retry" + retriedCount);
+
+                        // 延时
+                        try {
+                            Thread.sleep(fixedDelay);
+                            System.out.println("- Sleep 1s");
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+
+                    } else {
+                        // 重试错误
+                        onError(retryContext, retryListener);
+
+                        // 中断重试
+                        throw RetryTemplate.<E>wrapIfNecessary(lastException);
                     }
 
-
-                } else {
-                    // 重试错误
-                    onError(retryContext, retryListener);
                 }
-
-            } finally {
-                // 重试结束
-                onClose(retryContext, retryListener);
             }
-        }
 
-        // 重试次数耗尽
+            // 重试次数耗尽
+            return handleRetryExhausted(recoverCallback, retryContext, lastException,
+                    retriedCount);
+
+        } catch (Throwable ex) {
+            throw RetryTemplate.<E>wrapIfNecessary(lastException);
+        } finally {
+            // 重试结束
+            onClose(retryContext, retryListener);
+        }
+    }
+
+    private <T> T handleRetryExhausted(RecoverCallback<T> recoverCallback,
+                                       RetryContext retryContext, Throwable lastException,
+                                       int retriedCount) throws Throwable {
         if (lastException != null && retriedCount >= maxRetries) {
             if (recoverCallback != null) {
                 return recoverCallback.recover(retryContext);
             } else {
-                throw new RuntimeException(lastException);
+                throw new RetryExhaustedException("Retry is exhausted.", lastException);
             }
         }
-
-        throw new RetryException(lastException);
+        throw wrapIfNecessary(lastException);
     }
 
+    private static <E extends Throwable> E wrapIfNecessary(Throwable throwable)
+            throws RetryException {
+        if (throwable instanceof Error) {
+            throw (Error) throwable;
+        } else if (throwable instanceof Exception) {
+            @SuppressWarnings("unchecked")
+            E rethrow = (E) throwable;
+            return rethrow;
+        } else {
+            throw new RetryException(throwable);
+        }
+    }
 
     private void onOpen(RetryContext retryContext, RetryListener retryListener) {
         retryListener.onOpen(retryContext);
