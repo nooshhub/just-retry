@@ -8,12 +8,15 @@ import static com.nooshhub.sample.GoldRepository.*;
 public class GoldService {
 
     private final GoldRepository goldRepository = new GoldRepository();
-    private final RetryTemplate retryTemplate = new RetryTemplate();
+    private final RetryTemplate retryTemplate = RetryTemplate.builder()
+            .setRetryOnException(ConnectionException.class)
+            .setRetryListener(new StatisticsRetryListener())
+            .build();
 
-    public GoldService() {
-        retryTemplate.setRetryOnException(ConnectionException.class);
-        retryTemplate.setRetryListener(new StatisticsRetryListener());
-    }
+//    public GoldService() {
+//        retryTemplate.setRetryOnException(ConnectionException.class);
+//        retryTemplate.setRetryListener(new StatisticsRetryListener());
+//    }
 
     // 循环
     public void saveGold(Integer amount) throws Throwable {

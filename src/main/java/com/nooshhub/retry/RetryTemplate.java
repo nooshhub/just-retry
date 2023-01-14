@@ -11,6 +11,10 @@ public class RetryTemplate {
     private RetryListener retryListener;
     private long fixedDelay = 1000L;
 
+    public static RetryTemplateBuilder builder() {
+        return new RetryTemplateBuilder();
+    }
+
     public int getMaxRetries() {
         return this.maxRetries;
     }
