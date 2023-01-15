@@ -7,6 +7,10 @@ public class GoldService {
     private final GoldRepository goldRepository = new GoldRepository();
     private final RetryTemplate retryTemplate = RetryTemplate.builder()
             .setRetryOnException(ConnectionException.class)
+//            .setFixedDelay(1000L)
+            .setFixedRangeDelay(1000L, 1200L, 1500L)
+//            .setRandomDelay(1500)
+//            .setExponentialDelay(500, 2)
             .registerRetryListener(new StatisticsRetryListener())
             .registerRetryListener(new LogRetryListener())
             .build();

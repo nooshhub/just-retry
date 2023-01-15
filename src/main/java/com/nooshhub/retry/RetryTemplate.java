@@ -2,6 +2,10 @@ package com.nooshhub.retry;
 
 import java.util.List;
 
+import com.nooshhub.retry.delay.DelayContext;
+import com.nooshhub.retry.delay.DelayStrategy;
+import com.nooshhub.retry.delay.NoDelayStrategy;
+
 /**
  * @author Neal Shan
  * @since 2023/1/8
@@ -10,8 +14,8 @@ public class RetryTemplate {
 
     private int maxRetries = 3;
     private Class<? extends Throwable> retryOnException;
+    private DelayStrategy delayStrategy = new NoDelayStrategy();
     private List<RetryListener> retryListeners;
-    private long fixedDelay = 1000L;
 
     public static RetryTemplateBuilder builder() {
         return new RetryTemplateBuilder();
@@ -41,12 +45,12 @@ public class RetryTemplate {
         this.retryListeners = retryListeners;
     }
 
-    public long getFixedDelay() {
-        return this.fixedDelay;
+    public DelayStrategy getDelayStrategy() {
+        return this.delayStrategy;
     }
 
-    public void setFixedDelay(long fixedDelay) {
-        this.fixedDelay = fixedDelay;
+    public void setDelayStrategy(DelayStrategy delayStrategy) {
+        this.delayStrategy = delayStrategy;
     }
 
     public <T, E extends Throwable> T execute(RetryCallback<T, E> retryCallback) throws E {
@@ -69,6 +73,7 @@ public class RetryTemplate {
             // 重试开始
             onOpen(retryContext);
 
+            DelayContext delayContext = delayStrategy.start(retryContext);
             int retriedCount = 0;
 
             for (int i = 0; i < maxRetries; i++) {
@@ -89,22 +94,18 @@ public class RetryTemplate {
 
                         // 记录重试次数
                         ++retriedCount;
+                        retryContext.setRetryCount(retriedCount);
                         System.out.println("Retry" + retriedCount);
 
                         // 延时
-                        try {
-                            Thread.sleep(fixedDelay);
-                            System.out.println("- Sleep 1s");
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
+                        delayStrategy.delay(delayContext);
 
                     } else {
                         // 重试错误
                         onError(retryContext);
 
                         // 中断重试
-                        throw RetryTemplate.<E>wrapIfNecessary(lastException);
+                        throw RetryTemplate.<E>wrapIfNecessary(ex);
                     }
 
                 }
@@ -115,7 +116,7 @@ public class RetryTemplate {
                     retriedCount);
 
         } catch (Throwable ex) {
-            throw RetryTemplate.<E>wrapIfNecessary(lastException);
+            throw RetryTemplate.<E>wrapIfNecessary(ex);
         } finally {
             // 重试结束
             onClose(retryContext);
