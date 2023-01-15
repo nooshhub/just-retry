@@ -1,5 +1,7 @@
 package com.nooshhub.retry;
 
+import java.util.List;
+
 /**
  * @author Neal Shan
  * @since 2023/1/8
@@ -8,7 +10,7 @@ public class RetryTemplate {
 
     private int maxRetries = 3;
     private Class<? extends Throwable> retryOnException;
-    private RetryListener retryListener;
+    private List<RetryListener> retryListeners;
     private long fixedDelay = 1000L;
 
     public static RetryTemplateBuilder builder() {
@@ -31,12 +33,12 @@ public class RetryTemplate {
         this.retryOnException = retryOnException;
     }
 
-    public RetryListener getRetryListener() {
-        return this.retryListener;
+    public List<RetryListener> getRetryListeners() {
+        return this.retryListeners;
     }
 
-    public void setRetryListener(RetryListener retryListener) {
-        this.retryListener = retryListener;
+    public void setRetryListeners(List<RetryListener> retryListeners) {
+        this.retryListeners = retryListeners;
     }
 
     public long getFixedDelay() {
@@ -65,7 +67,7 @@ public class RetryTemplate {
         Throwable lastException = null;
         try {
             // 重试开始
-            onOpen(retryContext, retryListener);
+            onOpen(retryContext);
 
             int retriedCount = 0;
 
@@ -75,7 +77,7 @@ public class RetryTemplate {
                     T result = retryCallback.doExecute(retryContext);
 
                     // 重试成功
-                    onSuccess(retryContext, retryListener);
+                    onSuccess(retryContext);
 
                     return result;
                 } catch (Throwable ex) {
@@ -99,7 +101,7 @@ public class RetryTemplate {
 
                     } else {
                         // 重试错误
-                        onError(retryContext, retryListener);
+                        onError(retryContext);
 
                         // 中断重试
                         throw RetryTemplate.<E>wrapIfNecessary(lastException);
@@ -116,7 +118,7 @@ public class RetryTemplate {
             throw RetryTemplate.<E>wrapIfNecessary(lastException);
         } finally {
             // 重试结束
-            onClose(retryContext, retryListener);
+            onClose(retryContext);
         }
     }
 
@@ -146,20 +148,28 @@ public class RetryTemplate {
         }
     }
 
-    private void onOpen(RetryContext retryContext, RetryListener retryListener) {
-        retryListener.onOpen(retryContext);
+    private void onOpen(RetryContext retryContext) {
+        for (RetryListener retryListener : retryListeners) {
+            retryListener.onOpen(retryContext);
+        }
     }
 
-    private void onSuccess(RetryContext retryContext, RetryListener retryListener) {
-        retryListener.onSuccess(retryContext);
+    private void onSuccess(RetryContext retryContext) {
+        for (RetryListener retryListener : retryListeners) {
+            retryListener.onSuccess(retryContext);
+        }
     }
 
-    private void onError(RetryContext retryContext, RetryListener retryListener) {
-        retryListener.onError(retryContext);
+    private void onError(RetryContext retryContext) {
+        for (RetryListener retryListener : retryListeners) {
+            retryListener.onError(retryContext);
+        }
     }
 
-    private void onClose(RetryContext retryContext, RetryListener retryListener) {
-        retryListener.onClose(retryContext);
+    private void onClose(RetryContext retryContext) {
+        for (RetryListener retryListener : retryListeners) {
+            retryListener.onClose(retryContext);
+        }
     }
 
 }

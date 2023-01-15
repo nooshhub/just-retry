@@ -1,16 +1,14 @@
 package com.nooshhub.sample;
 
-import com.nooshhub.retry.RetryListener;
 import com.nooshhub.retry.RetryTemplate;
-
-import static com.nooshhub.sample.GoldRepository.*;
 
 public class GoldService {
 
     private final GoldRepository goldRepository = new GoldRepository();
     private final RetryTemplate retryTemplate = RetryTemplate.builder()
             .setRetryOnException(ConnectionException.class)
-            .setRetryListener(new StatisticsRetryListener())
+            .registerRetryListener(new StatisticsRetryListener())
+            .registerRetryListener(new LogRetryListener())
             .build();
 
 //    public GoldService() {
