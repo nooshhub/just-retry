@@ -1,4 +1,4 @@
-package com.nooshhub.sample;
+package com.nooshhub.retry;
 
 /**
  * @author Neal Shan

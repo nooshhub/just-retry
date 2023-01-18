@@ -1,10 +1,16 @@
-package com.nooshhub.sample;
+package com.nooshhub.retry;
 
+import com.nooshhub.retry.annotation.Retryable;
+
+import org.springframework.stereotype.Repository;
+
+@Repository
 class GoldRepository {
     public static final int SUCCESS = 1;
     public static final int THROW_ERROR = 2;
     public static final int THROW_EXCEPTION = 3;
 
+    @Retryable(maxRetries = 3, retryOnException = ConnectionException.class)
     public Integer save(Integer amount) {
         if (amount == null) {
             throw new ConnectionException();
